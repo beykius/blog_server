@@ -29,7 +29,7 @@ io.on("connection", (socket) => {
         io.emit("allUsers", usersOnline.getUsers());
     });
 
-    // Handle user logout (userOffline event)
+    // User logout
     socket.on("userOffline", async (userId) => {
         console.log(`User ${userId} is logging out`);
 

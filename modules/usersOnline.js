@@ -8,9 +8,6 @@ module.exports = {
     getUsers: () => {
         return users
     },
-    getUser: (username) => {
-        return users.find(x => x.username === username);
-    },
     userIsOnline: (username) => {
         const foundUser = users.find(x => x.username === username)
         return !!foundUser

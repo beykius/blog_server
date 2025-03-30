@@ -7,7 +7,7 @@ const {
     singleUser, singleUserPosts,
     myProfile, userUpdate, changePassword,
     comment, deleteComment,
-    getMessages, getUsers, deleteMessage, deleteUser,
+    getMessages, getUsers, deleteUser,
 
 
 
@@ -37,7 +37,6 @@ router.post("/posts/:postId/comments", userAuth, comment);
 router.delete('/post/:postId/comment/:commentId', deleteComment);
 router.get('/messages/mymessages/:receiverId', userAuth, getMessages);
 router.get('/users', userAuth, getUsers)
-router.delete('/messages/:messageId', deleteMessage);
 router.delete('/users/delete/:userId', deleteUser)
 
 

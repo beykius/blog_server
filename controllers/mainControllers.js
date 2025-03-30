@@ -352,8 +352,6 @@ module.exports = {
 
     },
 
-
-
     getMessages: async (req, res) => {
         const { senderId } = req.query; // senderId from query parameters
         const { receiverId } = req.params; // receiverId from route parameter
@@ -375,19 +373,6 @@ module.exports = {
             console.error("Error fetching messages:", err);
             return res.status(500).json({ success: false, message: "Failed to fetch messages", error: err });
         }
-    },
-
-    deleteMessage: async (req, res) => {
-
-            const { messageId } = req.params;
-
-            const message = await MessagesSchema.findByIdAndDelete(messageId);
-
-            if (!message) {
-                return res.status(404).json({ success: false, message: "Message not found" });
-            }
-
-            res.json({ success: true, message: "Message deleted successfully" });
     },
 
     deleteUser: async (req, res) => {

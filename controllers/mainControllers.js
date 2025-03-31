@@ -44,7 +44,6 @@ module.exports = {
         const {username, password} = req.body
         const myUser = await User.findOne({username})
 
-
         if (!myUser) return res.send({success: false, message: "User does not exist. Try different username."})
 
         const samePassword = await bcrypt.compare(password, myUser.password)
@@ -70,15 +69,21 @@ module.exports = {
     create: async (req, res) => {
         console.log("Received POST request:", req.body);
 
-        const {title, description, postImage, user, time, likedBy} = req.body;
+        const {title, description, postImage, time, userId, likedBy} = req.body;
 
         // Check if the user is authenticated
-        if (!user) {
+        if (!userId) {
             return res.status(401).send({success: false, message: "User not authenticated"});
         }
 
         if (!title || !description) {
             return res.status(400).json({success: false, message: "Title and description are required!"});
+        }
+
+        // Find user by userId
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({success: false, message: "User not found!"});
         }
 
         // Create a new post instance
@@ -91,8 +96,8 @@ module.exports = {
             likedBy,
         });
 
-        await newPost.save();
 
+        await newPost.save();
         return res.send({success: true, message: "Post created successfully", post: newPost});
     },
 
@@ -103,15 +108,11 @@ module.exports = {
 
     singlePost: async (req, res) => {
         const {postId} = req.params;
-        try {
-            const post = await PostSchema.findById(postId);
-            if (post) {
-                res.json({success: true, post});
-            } else {
-                res.status(404).json({success: false, message: "Post not found"});
-            }
-        } catch (err) {
-            res.status(500).json({success: false, message: "Error fetching post", error: err});
+        const post = await PostSchema.findById(postId);
+        if (post) {
+            res.json({success: true, post});
+        } else {
+            res.status(404).json({success: false, message: "Post not found"});
         }
     },
 
@@ -123,9 +124,23 @@ module.exports = {
     },
 
     favorites: async (req, res) => {
-        const {user} = req.body;
+        const {userId} = req.body;
+
+        if (!userId) {
+            console.log('No userId received in the request');
+            return res.status(400).json({success: false, message: "User ID is required"});
+        }
+
+        console.log("Received userId:", userId);
+
+        const user = await User.findById(userId);
+        if (!user) {
+            console.log("User not found");
+            return res.status(404).json({success: false, message: "User not found"});
+        }
 
         const favoritePosts = await PostSchema.find({likedBy: user._id});
+        console.log("Favorite posts:", favoritePosts);
 
         if (!favoritePosts.length) {
             return res.status(200).json({success: true, message: "No favorite posts yet.", favorites: []});
@@ -136,21 +151,24 @@ module.exports = {
             message: "Favorites fetched successfully",
             favorites: favoritePosts,
         });
-
     },
 
     likePost: async (req, res) => {
         const {postId} = req.params;
-        const {user} = req.body; // user._id should be sent in the request body
+        const {userId} = req.body;
 
+        if (!userId) {
+            return res.status(400).json({success: false, message: "User ID is required"});
+        }
+
+        const user = await User.findById(userId);
+        if (!user) {
+            return res.status(404).json({success: false, message: "User not found"});
+        }
 
         const postItem = await PostSchema.findById(postId);
         if (!postItem) {
             return res.status(404).json({success: false, message: "Post not found"});
-        }
-
-        if (!user || !user._id || !user.username) {
-            return res.status(400).json({success: false, message: "Invalid user data"});
         }
 
         const userHasLiked = postItem.likedBy.includes(user._id);
@@ -162,26 +180,24 @@ module.exports = {
 
         await postItem.save();
         return res.json({success: true, message: "Like toggled", post: postItem});
-
     },
 
-    singleUser: (req, res) => {
-        const {username} = req.params;  // Get username from URL parameters
-        User.findOne({username: username})  // Search by username
-            .then(user => {
-                if (user) {
-                    return res.json({success: true, user});
-                } else {
-                    return res.status(404).json({success: false, message: "User not found"});
-                }
-            })
+    singleUser: async (req, res) => {
+        const {username} = req.params;
+
+        const user = await User.findOne({username});
+
+        if (user) {
+            return res.json({success: true, user});
+        } else {
+            return res.status(404).json({success: false, message: "User not found"});
+        }
     },
 
     singleUserPosts: async (req, res) => {
         const {username} = req.params;
         console.log("Fetching posts for username:", username);
 
-        // Ensure MongoDB searches by `author.username`
         const posts = await PostSchema.find({username: username});
 
         if (!posts || posts.length === 0) {
@@ -250,8 +266,8 @@ module.exports = {
         // Update messages with the new image
         if (updatedUser.image && oldImage !== updatedUser.image) {
             await MessagesSchema.updateMany(
-                { 'senderUsername': updatedUser.username },
-                { $set: { 'senderImage': updatedUser.image } }
+                {'senderUsername': updatedUser.username},
+                {$set: {'senderImage': updatedUser.image}}
             );
         }
 
@@ -259,11 +275,13 @@ module.exports = {
     },
 
     changePassword: async (req, res) => {
-
         const {userId, oldPassword, newPassword, confirmPassword} = req.body;
 
         if (newPassword !== confirmPassword) {
             return res.json({success: false, message: "Passwords do not match"});
+        }
+        if (newPassword.length < 4 || newPassword.length > 20) {
+            return res.json({success: false, message: "Password must be between 4 and 20 characters."});
         }
 
         const user = await User.findById(userId);
@@ -316,8 +334,8 @@ module.exports = {
 
         const post = await PostSchema.findOneAndUpdate(
             {_id: postId},
-            {$pull: {comments: {commentId}}},  // Remove the comment with the specified commentId
-            {new: true}  // Return the updated post
+            {$pull: {comments: {commentId}}},
+            {new: true}
         );
 
         if (!post) {
@@ -328,70 +346,52 @@ module.exports = {
     },
 
     getUsers: async (req, res) => {
+        const online = usersOnline.getUsers();
+        console.log("Online Users:", online);
 
-            const online = usersOnline.getUsers();
-            console.log("Online Users:", online);
+        const users = await User.find({}, {password: 0});
+        console.log("Fetched Users:", users);
 
+        const items = [];
 
-            const users = await User.find({}, { password: 0 });
-            console.log("Fetched Users:", users);
+        users.forEach(item => {
+            const current = {
+                username: item.username,
+                _id: item._id,
+                image: item.image,
+                online: usersOnline.userIsOnline(item.username)
+            };
+            items.push(current);
+        });
 
-            const items = [];
-
-            users.forEach(item => {
-                const current = {
-                    username: item.username,
-                    _id: item._id,  // MongoDB _id for user identification
-                    image: item.image,
-                    online: usersOnline.userIsOnline(item.username)
-                };
-                items.push(current);
-            });
-
-            res.send({ success: true, users: items });
+        res.send({success: true, users: items});
 
     },
 
     getMessages: async (req, res) => {
-        const { senderId } = req.query; // senderId from query parameters
-        const { receiverId } = req.params; // receiverId from route parameter
+        const {senderId} = req.query; // senderId from query parameters
+        const {receiverId} = req.params; // receiverId from route parameter
 
         if (!senderId || !receiverId) {
-            return res.status(400).send({ message: "Missing sender or receiver ID" });
+            return res.status(400).send({message: "Missing sender or receiver ID"});
         }
 
-        try {
-            const messages = await MessagesSchema.find({
-                $or: [
-                    { senderId, receiverId },
-                    { senderId: receiverId, receiverId: senderId }
-                ]
-            }).sort({ timestamp: 1 });
+        const messages = await MessagesSchema.find({
+            $or: [
+                {senderId, receiverId},
+                {senderId: receiverId, receiverId: senderId}
+            ]
+        }).sort({timestamp: 1});
 
-            return res.json({ success: true, messages });
-        } catch (err) {
-            console.error("Error fetching messages:", err);
-            return res.status(500).json({ success: false, message: "Failed to fetch messages", error: err });
-        }
+        return res.json({success: true, messages});
     },
 
     deleteUser: async (req, res) => {
-        try {
+        const userId = req.params.userId;
+        const user = await User.findById(userId);
+        if (!user) return res.status(404).json({success: false, message: "User not found"});
 
-            const userId = req.params.userId; // Get userId from URL parameter
-            const user = await User.findById(userId);
-            if (!user) return res.status(404).json({ success: false, message: "User not found" });
-
-            await User.findByIdAndDelete(userId);
-            res.json({ success: true, message: "Profile deleted successfully" });
-        } catch (error) {
-            console.error(error);
-            res.status(500).json({ success: false, message: "Server error" });
-        }
+        await User.findByIdAndDelete(userId);
+        res.json({success: true, message: "Profile deleted successfully"});
     },
-
-
-
-
-
 }

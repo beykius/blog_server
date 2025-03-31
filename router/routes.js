@@ -10,7 +10,6 @@ const {
     getMessages, getUsers, deleteUser,
 
 
-
 } = require("../controllers/mainControllers")
 
 const {
@@ -27,7 +26,7 @@ router.get("/allposts", allPosts);
 router.get("/posts/:postId", singlePost);
 router.delete("/deletePost/:id", userAuth, deletePost);
 router.post('/posts/like/:postId', userAuth, likePost);
-router.get('/posts/favorites/:postId', userAuth, favorites);
+router.post('/posts/favorites', favorites);
 router.get("/users/:username", userAuth, singleUser);
 router.get('/posts/users/:username', userAuth, singleUserPosts);
 router.get("/profile/:id", userAuth, myProfile);

@@ -9,12 +9,15 @@ module.exports = (req, res, next) => {
 
     const token = userToken.split(" ")[1];
 
-    jwt.verify(token, process.env.SECRET_KEY, async (err, item) => {
-        if (err) return res.status(401).send({ success: false, message: "Unauthorized" });
-        if (!item) return res.status(401).send({ success: false, message: "Invalid token" });
+    jwt.verify(token, process.env.SECRET_KEY, (err, decodedUser) => {
+        if (err) {
+            return res.status(401).send({ success: false, message: "Unauthorized" });
+        }
+        if (!decodedUser) {
+            return res.status(401).send({ success: false, message: "Invalid token" });
+        }
 
-
-        req.body.user = item;
+        req.body.user = decodedUser;
         next();
     });
 };

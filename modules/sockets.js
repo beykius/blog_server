@@ -15,17 +15,11 @@ io.on("connection", (socket) => {
     console.log("A user connected:", socket.id);
 
     socket.on("login", async (username, userId) => {
-        if (users.has(userId)) return; // Prevent duplicate connections
-
+        if (users.has(userId)) return; // no duplicates
         const user = {username, id: socket.id, userId};
-        console.log("User logged in:", user);
         usersOnline.addUser(user);
         users.set(userId, socket.id);
-
-        // Update the database before emitting
         await User.updateOne({_id: userId}, {$set: {online: true}});
-
-        // Emit after database update
         io.emit("allUsers", usersOnline.getUsers());
     });
 
@@ -34,13 +28,8 @@ io.on("connection", (socket) => {
         console.log(`User ${userId} is logging out`);
 
         users.delete(userId);
-
         usersOnline.removeUser(socket.id);
-
-        // Update the database before emitting
         await User.updateOne({_id: userId}, {$set: {online: false}});
-
-        // Emit after database update
         io.emit("allUsers", usersOnline.getUsers());
     });
 
@@ -59,11 +48,7 @@ io.on("connection", (socket) => {
             console.log(`User ${disconnectedUserId} disconnected`);
 
             usersOnline.removeUser(socket.id);
-
-            // Update the database before emitting
             await User.updateOne({_id: disconnectedUserId}, {$set: {online: false}});
-
-            // Emit after database update
             io.emit("allUsers", usersOnline.getUsers());
         }
     });
@@ -87,14 +72,12 @@ io.on("connection", (socket) => {
         io.to(socket.id).emit("newMessage", completeMessage);
 
     });
+
     socket.on("deleteMessage", async ({messageId}) => {
-
         const deletedMessage = await MessagesSchema.findByIdAndDelete(messageId);
-
         if (deletedMessage) {
             io.emit("messageDeleted", {messageId});
         }
-
     });
 
 
